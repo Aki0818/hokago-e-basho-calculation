@@ -9,7 +9,6 @@
 plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
     application
-    id("edu.sc.seis.launch4j") version "3.0.6"
 }
 
 repositories {
@@ -29,8 +28,9 @@ dependencies {
 
     // https://mvnrepository.com/artifact/org.apache.commons/commons-csv
     implementation("org.apache.commons:commons-csv:1.11.0")
-    // https://mvnrepository.com/artifact/args4j/args4j
-    implementation("args4j:args4j:2.37")
+// https://mvnrepository.com/artifact/commons-cli/commons-cli
+    implementation("commons-cli:commons-cli:1.9.0")
+
 
 
 }
@@ -43,12 +43,4 @@ application {
 tasks.test {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
-}
-
-
-tasks.withType<edu.sc.seis.launch4j.tasks.DefaultLaunch4jTask> {
-    outfile.set("test.exe")
-    mainClassName.set("rpa.Main")
-    //icon.set("$projectDir/icons/myApp.ico")
-    productName.set("My App")
 }
