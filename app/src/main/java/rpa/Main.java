@@ -43,6 +43,14 @@ public class Main {
                         .desc( "output dir")
                         .build()
         );
+        options.addOption(
+                Option.builder("t")
+                        .argName("koufuri-plus template csv file")
+                        .hasArg()
+                        .required()
+                        .desc( "template file")
+                        .build()
+        );
 
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd = null;
@@ -63,7 +71,7 @@ public class Main {
 
         Path inputDir = Paths.get(cmd.getOptionValue("i"));
         Path outputDirForStudents = Paths.get(cmd.getOptionValue("o"));
-
+        Path templateFile = cmd.getOptionValue("t") == null ? null : Paths.get(cmd.getOptionValue("t"));
         Path inputFile = null;
         {
             try {
@@ -88,7 +96,7 @@ public class Main {
         }
 
         try {
-            TimeCardCalculator ef = new TimeCardCalculator(inputFile.toFile(), outputDirForStudents);
+            TimeCardCalculator ef = new TimeCardCalculator(inputFile.toFile(), outputDirForStudents, templateFile);
             ef.run();
         } catch (Exception e) {
             System.err.println(e.getMessage());

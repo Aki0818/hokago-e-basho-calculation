@@ -1,18 +1,19 @@
 package rpa.logic;
 
-import rpa.record.InOutRecord;
 import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
+import rpa.record.InOutRecord;
 import rpa.record.Interrupts;
 import rpa.record.UsageDuration;
 
 import java.io.*;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class TimeCardCalculator {
 
@@ -21,14 +22,15 @@ public class TimeCardCalculator {
 
     public File inputFile;
     public Path outputDirPath;
+    public Path templateFile;
 
     TimeCardCalculator() {
-
     }
 
-    public TimeCardCalculator(File inputFile, Path outputDirPath) {
-        this.inputFile = inputFile;
-        this.outputDirPath = outputDirPath;
+    public TimeCardCalculator(File file, Path outputDirForStudents, Path templateFile) {
+        this.inputFile = file;
+        this.outputDirPath = outputDirForStudents;
+        this.templateFile = templateFile;
 
         if (!outputDirPath.toFile().exists()) {
             outputDirPath.toFile().mkdirs();
@@ -173,7 +175,7 @@ public class TimeCardCalculator {
         Map<String, Integer> total = new HashMap<>();
 
         for (InOutRecord r : records) {
-            if(!r.isError()) {
+            if (!r.isError()) {
                 int roundedBeforeTime = r.getRoundedBeforeMin();
                 int roundedExtendTime = r.getRoundedExtendMin();
                 int beforeSum = total.get(r.getName()) != null ? total.get(r.getName()) : 0;
@@ -185,7 +187,7 @@ public class TimeCardCalculator {
     }
 
     Map<String, List<InOutRecord>> makeDetail(List<InOutRecord> records) {
-        Map<String,List<InOutRecord>> detail = new HashMap<>();
+        Map<String, List<InOutRecord>> detail = new HashMap<>();
 
         for (InOutRecord r : records) {
             if (!detail.containsKey(r.getName())) {
@@ -196,22 +198,67 @@ public class TimeCardCalculator {
         return detail;
     }
 
-    void outputCSV(Map<String, Integer> total) {
-        List<String> output = new ArrayList<>();
-        output.add("\"児童名\",\"延長(単位)\",\"延長料金(円)\"");
+    void outputCSV(Map<String, Integer> total) throws IOException {
+        if (templateFile == null) {
+            return;
+        }
+        List<CSVRecord> records = null;
+        String[] HEADERS_READ = {
+                "利用者ID", "利用者姓", "利用者名", "コース・クラス"
+        };
+        String[] HEADERS_PRINT = {
+                "利用者ID", "利用者姓", "利用者名", "コース・クラス", "延長保育料"
+        };
 
-        total.entrySet().stream()
-                .filter(s -> s.getValue() != 0)
-                .forEach(s ->
-                        output.add(
-                                String.format("%s,%d,%d",
-                                        s.getKey(),
-                                        minutes2Unit(s.getValue()),
-                                        minutes2Unit(s.getValue()) * FEE_PER_15MIN
-                                )
-                        )
-                );
-        outputStringsToFile(output, outputDirPath, "output.csv");
+        try (Reader in = new BufferedReader(new FileReader(templateFile.toFile(), StandardCharsets.UTF_8))) {
+            CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
+                    .setHeader(HEADERS_READ)
+                    .setSkipHeaderRecord(true)
+                    .setAllowMissingColumnNames(true)
+                    .build();
+
+            Iterable<CSVRecord> parser = csvFormat.parse(in);
+            records = StreamSupport.stream(parser.spliterator(), false).toList();
+        }
+
+        CSVFormat csvFormatForPrint = CSVFormat.DEFAULT.builder()
+                .setHeader(HEADERS_PRINT)
+                .setSkipHeaderRecord(true)
+                .setAllowMissingColumnNames(true)
+                .build();
+
+        File f = new File(outputDirPath.toFile(), "output.csv");
+
+        try (Writer w = new FileWriter(f, StandardCharsets.UTF_8);
+             CSVPrinter printer = new CSVPrinter(w, csvFormatForPrint)) {
+
+            printer.printRecord(Arrays.stream(HEADERS_PRINT).toList());
+
+            final List<CSVRecord> finalRecords = records;
+            total.entrySet().stream().
+                    filter(e -> e.getValue() != 0).
+                    forEach(e -> finalRecords.stream()
+                            .filter(r -> matchName(e.getKey(), r.get(HEADERS_READ[1]), r.get(HEADERS_READ[2])))
+                            .forEach(r -> {
+                                try {
+                                    printer.printRecord(
+                                            r.get(HEADERS_READ[0]),
+                                            r.get(HEADERS_READ[1]),
+                                            r.get(HEADERS_READ[2]),
+                                            r.get(HEADERS_READ[3]),
+                                            minutes2Unit(e.getValue()) * FEE_PER_15MIN
+                                    );
+                                } catch (IOException ex) {
+                                    throw new RuntimeException(ex);
+                                }
+                            })
+                    );
+        }
+    }
+
+    private static boolean matchName(String name, String family, String first) {
+        return name.startsWith(family)
+                && name.endsWith(first);
     }
 
     void outputDetails(Map<String, List<InOutRecord>> detail, Map<String, Integer> total) {
