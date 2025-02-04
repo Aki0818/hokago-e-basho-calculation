@@ -225,10 +225,11 @@ public class TimeCardCalculator {
                     .forEach(k -> output.add(k.toStringForDetail())
                     );
             String warning = subDetail.stream().anyMatch(InOutRecord::isError) ? " !!" : "";
+            Optional<Integer> totalExtend = Optional.ofNullable(total.get(s));
             output.add(
                     String.format("total : %3d (%5d)%s\n",
-                            minutes2Unit(total.get(s)),
-                            minutes2Unit(total.get(s)) * FEE_PER_15MIN,
+                            minutes2Unit(totalExtend.orElse(0)),
+                            minutes2Unit(totalExtend.orElse(0)) * FEE_PER_15MIN,
                             warning
                     )
             );
