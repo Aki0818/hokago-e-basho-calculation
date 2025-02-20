@@ -66,57 +66,39 @@ public class InOutRecord implements Comparable {
     }
 
     public int getRoundedBeforeMin() {
-        LocalTime before = LocalTime.of(8, 30);
-        return usageHours.stream().
-                filter(h -> h.startTime.isBefore(before))
-                .map(h -> {
-                    LocalTime endTime = getEarly(h.endTime, before);
-                    return Duration.between(h.startTime, endTime);
-                })
-                .map(Duration::toMinutes)
-                .map(m -> ((m + 14) / 15) * 15)
-                .mapToInt(Long::intValue)
-                .sum();
+        return ((getBeforeMin() + 14) / 15) * 15;
     }
 
     public int getBeforeMin() {
         LocalTime before = LocalTime.of(8, 30);
-        return usageHours.stream().
+        var seconds = usageHours.stream().
                 filter(h -> h.startTime.isBefore(before))
                 .map(h -> {
                     LocalTime endTime = getEarly(h.endTime, before);
                     return Duration.between(h.startTime, endTime);
                 })
-                .map(Duration::toMinutes)
+                .map(Duration::toSeconds)
                 .mapToInt(Long::intValue)
                 .sum();
+        return (seconds + 59) / 60;
     }
 
     public int getRoundedExtendMin() {
-        LocalTime after = LocalTime.of(18, 29);
-        return usageHours.stream().
-                filter(h -> h.endTime.isAfter(after))
-                .map(h -> {
-                    LocalTime startTime = getLatey(h.startTime, after);
-                    return Duration.between(startTime, h.endTime);
-                })
-                .map(Duration::toMinutes)
-                .map(m -> ((m + 14) / 15) * 15)
-                .mapToInt(Long::intValue)
-                .sum();
+        return ((getExtendMin() + 14) / 15) * 15;
     }
 
     public int getExtendMin() {
-        LocalTime after = LocalTime.of(18, 29);
-        return usageHours.stream().
+        LocalTime after = LocalTime.of(18, 30);
+        var seconds = usageHours.stream().
                 filter(h -> h.endTime.isAfter(after))
                 .map(h -> {
                     LocalTime startTime = getLatey(h.startTime, after);
                     return Duration.between(startTime, h.endTime);
                 })
-                .map(Duration::toMinutes)
+                .map(Duration::toSeconds)
                 .mapToInt(Long::intValue)
                 .sum();
+        return (seconds + 59) / 60;
     }
 
     private LocalTime getEarly(LocalTime time1, LocalTime time2) {
